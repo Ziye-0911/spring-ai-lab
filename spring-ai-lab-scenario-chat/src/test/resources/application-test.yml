@@ -1,0 +1,51 @@
+# ================================================================
+# 集成测试配置：使用真实 API 端点进行全场景功能测试
+# ================================================================
+
+spring:
+  main:
+    allow-bean-definition-overriding: true
+    lazy-initialization: false
+
+# ========== DashScope / OpenAI 兼容 API ==========
+spring.ai.dashscope:
+  api-key: ${DASHSCOPE_API_KEY}
+  base-url: https://token-plan-cn.xiaomimimo.com/v1/chat/completions
+  model: mimo-v2-pro
+  max-tokens: 2048
+  temperature: 0.7
+  connect-timeout: 30
+  read-timeout: 120
+
+# ========== Lab 全局配置 ==========
+spring.ai.lab:
+  enabled: true
+  observation:
+    enabled: true
+    token-tracking: true
+    latency-tracking: true
+    metrics-export: false
+    export-prefix: ai_lab_test
+  memory:
+    type: in-memory
+    max-history: 20
+    ttl-minutes: 30
+    cleanup-interval-minutes: 60
+  model:
+    primary-provider: dashscope
+  fallback:
+    enabled: false
+
+# ========== MCP 端点路径配置 ==========
+spring.ai.lab.mcp:
+  enabled: true
+  server-name: test-mcp-server
+  version: 1.0.0
+  sse-endpoint: /mcp/sse
+  sse-message-endpoint: /message
+  heartbeat: false
+
+# ========== 日志级别 ==========
+logging.level:
+  com.liziye: INFO
+  root: WARN

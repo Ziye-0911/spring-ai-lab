@@ -1,0 +1,36 @@
+# ===== Maven =====
+target/
+!.mvn/wrapper/maven-wrapper.jar
+*.jar
+*.war
+
+# ===== IDE =====
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+.settings/
+.project
+.classpath
+.factorypath
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# ===== Log =====
+*.log
+
+# ===== Environment =====
+.env
+.env.local
+application-local.yml
+application-local.yaml
+
+# ===== Temp =====
+/tmp/
+/temp/

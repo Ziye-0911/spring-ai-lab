@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.liziye</groupId>
+        <artifactId>spring-ai-lab</artifactId>
+        <version>0.2.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>spring-ai-lab-bom</artifactId>
+    <packaging>pom</packaging>
+
+    <name>Spring AI Lab :: BOM</name>
+    <description>Spring AI Lab Bill of Materials - 统一版本控制</description>
+
+    <!--
+        业务方引用方式:
+        <dependencyManagement>
+            <dependencies>
+                <dependency>
+                    <groupId>com.liziye</groupId>
+                    <artifactId>spring-ai-lab-bom</artifactId>
+                    <version>0.2.0-SNAPSHOT</version>
+                    <type>pom</type>
+                    <scope>import</scope>
+                </dependency>
+            </dependencies>
+        </dependencyManagement>
+    -->
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- ===== 自身模块 ===== -->
+            <dependency>
+                <groupId>com.liziye</groupId>
+                <artifactId>spring-ai-lab-core</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.liziye</groupId>
+                <artifactId>spring-ai-lab-document</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.liziye</groupId>
+                <artifactId>spring-ai-lab-test</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <!-- ===== 场景模板 ===== -->
+            <dependency>
+                <groupId>com.liziye</groupId>
+                <artifactId>spring-ai-lab-scenario-chat</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.liziye</groupId>
+                <artifactId>spring-ai-lab-scenario-rag</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.liziye</groupId>
+                <artifactId>spring-ai-lab-scenario-multi-agent</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.liziye</groupId>
+                <artifactId>spring-ai-lab-scenario-code-review</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.liziye</groupId>
+                <artifactId>spring-ai-lab-scenario-data-analysis</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.liziye</groupId>
+                <artifactId>spring-ai-lab-scenario-customer-service</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <!-- ===== 第三方库（BOM 统一管理版本，消除业务方版本冲突） ===== -->
+
+            <!-- Spring AI 官方（1.1.5 artifact 重构后） -->
+            <dependency>
+                <groupId>org.springframework.ai</groupId>
+                <artifactId>spring-ai-commons</artifactId>
+                <version>${spring-ai.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.springframework.ai</groupId>
+                <artifactId>spring-ai-model</artifactId>
+                <version>${spring-ai.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.springframework.ai</groupId>
+                <artifactId>spring-ai-client-chat</artifactId>
+                <version>${spring-ai.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.springframework.ai</groupId>
+                <artifactId>spring-ai-vector-store</artifactId>
+                <version>${spring-ai.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.springframework.ai</groupId>
+                <artifactId>spring-ai-autoconfigure-model-chat-client</artifactId>
+                <version>${spring-ai.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.springframework.ai</groupId>
+                <artifactId>spring-ai-openai</artifactId>
+                <version>${spring-ai.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.springframework.ai</groupId>
+                <artifactId>spring-ai-ollama</artifactId>
+                <version>${spring-ai.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.springframework.ai</groupId>
+                <artifactId>spring-ai-pgvector-store</artifactId>
+                <version>${spring-ai.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.springframework.ai</groupId>
+                <artifactId>spring-ai-redis-store</artifactId>
+                <version>${spring-ai.version}</version>
+            </dependency>
+
+            <!-- 文档处理 -->
+            <dependency>
+                <groupId>org.apache.pdfbox</groupId>
+                <artifactId>pdfbox</artifactId>
+                <version>${pdfbox.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.poi</groupId>
+                <artifactId>poi-ooxml</artifactId>
+                <version>${poi.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.jsoup</groupId>
+                <artifactId>jsoup</artifactId>
+                <version>${jsoup.version}</version>
+            </dependency>
+
+            <!-- 容错 -->
+            <dependency>
+                <groupId>io.github.resilience4j</groupId>
+                <artifactId>resilience4j-spring-boot3</artifactId>
+                <version>${resilience4j.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+</project>

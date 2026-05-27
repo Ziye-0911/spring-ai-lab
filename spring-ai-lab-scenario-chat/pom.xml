@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.liziye</groupId>
+        <artifactId>spring-ai-lab</artifactId>
+        <version>0.2.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>spring-ai-lab-scenario-chat</artifactId>
+
+    <name>Spring AI Lab :: Scenario :: Chat</name>
+    <description>场景模板 - 通用对话 Agent</description>
+
+    <dependencies>
+        <!-- 核心抽象 -->
+        <dependency>
+            <groupId>com.liziye</groupId>
+            <artifactId>spring-ai-lab-core</artifactId>
+        </dependency>
+
+        <!-- 文档处理（RAG 场景传递依赖所需） -->
+        <dependency>
+            <groupId>com.liziye</groupId>
+            <artifactId>spring-ai-lab-document</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- Spring Boot Web（Controller + SSE） -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webflux</artifactId>
+        </dependency>
+
+        <!-- 模型提供商（全部 optional，业务方按需引入） -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-openai</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-ollama</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- Jackson（JSON 序列化） -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+
+        <!-- 其他场景模块（集成测试用，业务方可按需引用） -->
+        <dependency>
+            <groupId>com.liziye</groupId>
+            <artifactId>spring-ai-lab-scenario-rag</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>com.liziye</groupId>
+            <artifactId>spring-ai-lab-scenario-code-review</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>com.liziye</groupId>
+            <artifactId>spring-ai-lab-scenario-multi-agent</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>com.liziye</groupId>
+            <artifactId>spring-ai-lab-scenario-data-analysis</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>com.liziye</groupId>
+            <artifactId>spring-ai-lab-scenario-customer-service</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>com.liziye</groupId>
+            <artifactId>spring-ai-lab-scenario-mcp</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- 测试 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>

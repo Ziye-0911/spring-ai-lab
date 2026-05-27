@@ -1,0 +1,263 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!-- ===== 继承 Spring Boot Parent ===== -->
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.4.5</version>
+        <relativePath/>
+    </parent>
+
+    <!-- ===== 项目坐标 ===== -->
+    <groupId>com.liziye</groupId>
+    <artifactId>spring-ai-lab</artifactId>
+    <version>0.2.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
+
+    <name>Spring AI Lab</name>
+    <description>基于 Spring AI 的 AI 应用快速开发工具箱</description>
+
+    <!-- ===== 项目元信息 ===== -->
+    <url>https://gitee.com/liziye/spring-ai-lab</url>
+
+    <licenses>
+        <license>
+            <name>Apache License, Version 2.0</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0</url>
+        </license>
+    </licenses>
+
+    <developers>
+        <developer>
+            <name>李子叶</name>
+            <email>liziye@example.com</email>
+        </developer>
+    </developers>
+
+    <!-- ===== 聚合所有子模块 ===== -->
+    <modules>
+        <module>spring-ai-lab-bom</module>
+        <module>spring-ai-lab-core</module>
+        <module>spring-ai-lab-document</module>
+        <module>spring-ai-lab-test</module>
+        <module>spring-ai-lab-scenario-chat</module>
+        <module>spring-ai-lab-scenario-rag</module>
+        <module>spring-ai-lab-scenario-multi-agent</module>
+        <module>spring-ai-lab-scenario-code-review</module>
+        <module>spring-ai-lab-scenario-data-analysis</module>
+        <module>spring-ai-lab-scenario-customer-service</module>
+        <module>spring-ai-lab-scenario-mcp</module>
+    </modules>
+
+    <!-- ===== 属性 ===== -->
+    <properties>
+        <!-- JDK -->
+        <java.version>17</java.version>
+        <maven.compiler.source>${java.version}</maven.compiler.source>
+        <maven.compiler.target>${java.version}</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+        <!-- Spring AI -->
+        <spring-ai.version>1.1.5</spring-ai.version>
+
+        <!-- 文档处理 -->
+        <pdfbox.version>3.0.4</pdfbox.version>
+        <poi.version>5.4.0</poi.version>
+        <jsoup.version>1.18.1</jsoup.version>
+
+        <!-- 数据库 & 向量库 -->
+        <pgvector.version>0.1.4</pgvector.version>
+
+        <!-- 容错 -->
+        <resilience4j.version>2.3.0</resilience4j.version>
+
+        <!-- 监控 -->
+        <micrometer.version>1.14.3</micrometer.version>
+
+        <!-- 测试 -->
+        <mockito.version>5.14.2</mockito.version>
+    </properties>
+
+    <!-- ===== 依赖版本管理（统一管控自身模块 + 第三方库） ===== -->
+    <dependencyManagement>
+        <dependencies>
+            <!-- ================ Spring AI 官方 BOM ================ -->
+            <dependency>
+                <groupId>org.springframework.ai</groupId>
+                <artifactId>spring-ai-bom</artifactId>
+                <version>${spring-ai.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <!-- ================ Spring AI 核心依赖（1.1.5 artifact 重构后） ================ -->
+            <dependency>
+                <groupId>org.springframework.ai</groupId>
+                <artifactId>spring-ai-commons</artifactId>
+                <version>${spring-ai.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.springframework.ai</groupId>
+                <artifactId>spring-ai-model</artifactId>
+                <version>${spring-ai.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.springframework.ai</groupId>
+                <artifactId>spring-ai-client-chat</artifactId>
+                <version>${spring-ai.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.springframework.ai</groupId>
+                <artifactId>spring-ai-vector-store</artifactId>
+                <version>${spring-ai.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.springframework.ai</groupId>
+                <artifactId>spring-ai-autoconfigure-model-chat-client</artifactId>
+                <version>${spring-ai.version}</version>
+            </dependency>
+
+            <!-- Lombok -->
+            <dependency>
+                <groupId>org.projectlombok</groupId>
+                <artifactId>lombok</artifactId>
+                <version>1.18.36</version>
+            </dependency>
+
+            <!-- ================ 自身模块 ================ -->
+            <dependency>
+                <groupId>com.liziye</groupId>
+                <artifactId>spring-ai-lab-bom</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.liziye</groupId>
+                <artifactId>spring-ai-lab-core</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.liziye</groupId>
+                <artifactId>spring-ai-lab-document</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.liziye</groupId>
+                <artifactId>spring-ai-lab-test</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <!-- ================ 文档处理 ================ -->
+            <dependency>
+                <groupId>org.apache.pdfbox</groupId>
+                <artifactId>pdfbox</artifactId>
+                <version>${pdfbox.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.poi</groupId>
+                <artifactId>poi-ooxml</artifactId>
+                <version>${poi.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.jsoup</groupId>
+                <artifactId>jsoup</artifactId>
+                <version>${jsoup.version}</version>
+            </dependency>
+
+            <!-- ================ 容错 ================ -->
+            <dependency>
+                <groupId>io.github.resilience4j</groupId>
+                <artifactId>resilience4j-spring-boot3</artifactId>
+                <version>${resilience4j.version}</version>
+            </dependency>
+
+            <!-- ================ 场景模板（可选） ================ -->
+            <dependency>
+                <groupId>com.liziye</groupId>
+                <artifactId>spring-ai-lab-scenario-chat</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.liziye</groupId>
+                <artifactId>spring-ai-lab-scenario-rag</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.liziye</groupId>
+                <artifactId>spring-ai-lab-scenario-multi-agent</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.liziye</groupId>
+                <artifactId>spring-ai-lab-scenario-code-review</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.liziye</groupId>
+                <artifactId>spring-ai-lab-scenario-data-analysis</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.liziye</groupId>
+                <artifactId>spring-ai-lab-scenario-customer-service</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.liziye</groupId>
+                <artifactId>spring-ai-lab-scenario-mcp</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <!-- ===== 公共构建配置 ===== -->
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <source>${java.version}</source>
+                    <target>${java.version}</target>
+                    <parameters>true</parameters>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>attach-sources</id>
+                        <goals>
+                            <goal>jar-no-fork</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+    <!-- ===== Spring AI 快照仓库 ===== -->
+    <repositories>
+        <repository>
+            <id>spring-milestones</id>
+            <name>Spring Milestones</name>
+            <url>https://repo.spring.io/milestone</url>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </repository>
+        <repository>
+            <id>spring-snapshots</id>
+            <name>Spring Snapshots</name>
+            <url>https://repo.spring.io/snapshot</url>
+            <releases>
+                <enabled>false</enabled>
+            </releases>
+        </repository>
+    </repositories>
+
+</project>

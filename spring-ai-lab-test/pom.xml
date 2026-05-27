@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.liziye</groupId>
+        <artifactId>spring-ai-lab</artifactId>
+        <version>0.2.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>spring-ai-lab-test</artifactId>
+
+    <name>Spring AI Lab :: Test</name>
+    <description>测试工具模块 - Mock 组件 + 测试基类</description>
+
+    <!--
+        ★ 业务方引入此模块获得全套测试辅助工具：
+        - MockChatClient / MockVectorStore / MockEmbeddingModel
+        - AbstractAgentTest / AbstractIntegrationTest
+    -->
+
+    <dependencies>
+        <!-- 依赖 core 接口 -->
+        <dependency>
+            <groupId>com.liziye</groupId>
+            <artifactId>spring-ai-lab-core</artifactId>
+        </dependency>
+
+        <!-- Spring Boot 测试 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+        </dependency>
+
+        <!-- Mockito -->
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+        </dependency>
+
+        <!-- Spring Web（用于 MockMvc 等） -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+            <optional>true</optional>
+        </dependency>
+    </dependencies>
+
+</project>

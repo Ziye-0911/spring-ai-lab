@@ -1,0 +1,22 @@
+package com.liziye.spring.ai.lab.scenario.chat;
+
+import com.liziye.spring.ai.lab.core.LabAutoConfiguration;
+import org.springframework.context.annotation.Import;
+
+import java.lang.annotation.*;
+
+/**
+ * 启用通用对话 Agent 场景。
+ *
+ * <p>将此注解添加到 Spring Boot 启动类上即可自动装配 Chat Agent 相关组件，
+ * 包括 {@link ChatAgentAutoConfiguration} 和 {@link LabAutoConfiguration}。
+ *
+ * @author liziye
+ * @since 1.0.0
+ */
+@Target(ElementType.TYPE)
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+@Import({ChatAgentAutoConfiguration.class, LabAutoConfiguration.class})
+public @interface EnableChatAgent {
+}
