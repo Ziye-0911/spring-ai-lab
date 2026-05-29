@@ -2,6 +2,7 @@
 
 > 基于 Spring AI 的 AI 应用快速开发工具箱
 >
+> Spring AI Lab — AI scenario starters for Spring Boot. Chat, RAG, multi-agent, code review, and more — each available as a drop-in dependency with auto-configured REST APIs. Zero boilerplate, production-ready.
 > **Spring AI Application Rapid Development Toolkit**
 
 ---
