@@ -8,7 +8,10 @@ import org.springframework.core.io.support.ResourcePatternUtils;
 import org.yaml.snakeyaml.Yaml;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
@@ -18,11 +21,17 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /**
  * Skill 加载器 — 扫描 skills 目录下的 .md 文件并进行解析和热加载。
  *
- * <p>支持两种目录来源：
- * <ul>
- *   <li><b>classpath</b>：{@code classpath:skills}，仅启动时扫描，不支持热加载</li>
- *   <li><b>文件系统</b>：{@code /path/to/skills} 或相对路径，支持 FileWatcher 热加载</li>
- * </ul>
+ * <h3>多源加载策略</h3>
+ * <ol>
+ *   <li><b>外部文件目录</b>（{@code externalDir}）：优先级最高，支持热加载和 REST API 管理</li>
+ *   <li><b>classpath 内置</b>（{@code classpath:skills}）：作为兜底默认，仅在外部目录未提供时生效</li>
+ * </ol>
+ *
+ * <p>同名 Skill 以外部目录为准，可覆盖 classpath 内置 Skill。
+ *
+ * <h3>自动初始化</h3>
+ * 当 {@code externalDir} 已配置且 {@code autoInit=true} 时，
+ * 若外部目录为空或不存在，启动时自动从 classpath 复制内置 Skill 文件。
  *
  * <p>Skill 文件格式（YAML Frontmatter + Markdown）：
  * <pre>{@code
@@ -54,6 +63,10 @@ public class SkillLoader {
     private final AtomicBoolean watching = new AtomicBoolean(false);
     private ExecutorService watchExecutor;
     private Path watchedDirectory;
+    /**
+     * 当前生效的外部目录路径（可能为 null）。
+     */
+    private Path externalDirectory;
 
     public SkillLoader(SkillProperties properties,
                        SkillRegistry registry,
@@ -66,21 +79,35 @@ public class SkillLoader {
     // ===== 公开 API =====
 
     /**
-     * 扫描并加载所有 Skill 文件，如果开启了热加载则启动文件监听。
+     * 扫描并加载所有 Skill 文件。
+     *
+     * <p>加载顺序：
+     * <ol>
+     *   <li>若配置了 {@code externalDir} → 加载外部目录文件（同名 Skill 覆盖旧值）</li>
+     *   <li>加载 classpath 内置 Skill 作为兜底（仅注册外部目录不存在的 Skill）</li>
+     * </ol>
      */
     public void load() {
-        String dir = properties.getDirectory();
+        boolean hasExternal = properties.getExternalDir() != null
+                && !properties.getExternalDir().isBlank();
 
-        if (isClasspathResource(dir)) {
-            loadFromClasspath(dir);
+        if (hasExternal) {
+            // 场景 1: 外部目录 + classpath 兜底
+            loadExternalWithFallback();
         } else {
-            loadFromFileSystem(dir);
-            if (properties.isHotReload()) {
-                startWatching();
-            }
+            // 场景 2: 仅 classpath 或仅文件系统（向后兼容旧逻辑）
+            loadSingleSource(properties.getDirectory());
         }
 
-        log.info("[SKILL-LOADER] Loaded {} skills from {}", registry.size(), dir);
+        log.info("[SKILL-LOADER] Loaded {} skills from {}",
+                registry.size(),
+                hasExternal ? properties.getExternalDir() : properties.getDirectory());
+
+        // 注册所有已加载 Skill 的摘要信息
+        for (ParsedSkill skill : registry.getAll()) {
+            log.debug("[SKILL-LOADER]   └── {} | {} | priority={}",
+                    skill.getName(), skill.getDescription(), skill.getPriority());
+        }
     }
 
     /**
@@ -91,7 +118,7 @@ public class SkillLoader {
     }
 
     /**
-     * 手动重新加载单个 Skill 文件。
+     * 手动重新加载单个 Skill 文件（仅适用于外部目录）。
      *
      * @param filePath 文件路径
      */
@@ -108,7 +135,208 @@ public class SkillLoader {
         }
     }
 
-    // ===== 加载逻辑 =====
+    /**
+     * 重新加载外部目录的所有 Skill（用于 REST API 全量刷新）。
+     * 先清空外部 Skill，再从外部目录重新加载，classpath 内置 Skill 作为兜底。
+     */
+    public void reloadAll() {
+        if (externalDirectory == null) {
+            log.warn("[SKILL-LOADER] No external directory configured, skipping reloadAll");
+            return;
+        }
+
+        // 先清空所有 Skill
+        registry.clear();
+
+        // 重新加载：外部目录优先，classpath 兜底
+        loadExternalWithFallback();
+        log.info("[SKILL-LOADER] Full reload complete, {} skills loaded", registry.size());
+    }
+
+    /**
+     * 获取外部目录路径。
+     *
+     * @return 外部目录路径，可能为 null
+     */
+    public Path getExternalDirectory() {
+        return externalDirectory;
+    }
+
+    // ===== 多源加载逻辑 =====
+
+    /**
+     * 外部目录 + classpath 兜底 混合加载。
+     */
+    private void loadExternalWithFallback() {
+        // Step 1: 初始化外部目录（可选自动种子化）
+        initExternalDir();
+
+        // Step 2: 加载外部目录 Skill（高优先级）
+        loadFromFileSystem(externalDirectory);
+
+        // Step 3: 加载 classpath 内置 Skill 作为兜底（仅注册外部不存在的）
+        loadBuiltinFallback();
+
+        // Step 4: 启用外部目录文件监听
+        if (properties.isHotReload()) {
+            watchedDirectory = externalDirectory;
+            startWatching();
+        }
+    }
+
+    /**
+     * 单源加载（向后兼容旧逻辑）。
+     */
+    private void loadSingleSource(String dir) {
+        if (isClasspathResource(dir)) {
+            loadFromClasspath(dir);
+        } else {
+            watchedDirectory = Paths.get(dir);
+            loadFromFileSystem(watchedDirectory);
+            if (properties.isHotReload()) {
+                startWatching();
+            }
+        }
+    }
+
+    /**
+     * 初始化外部目录：创建目录 + 可选的自动种子化。
+     */
+    private void initExternalDir() {
+        String dir = properties.getExternalDir();
+        externalDirectory = Paths.get(dir);
+
+        // 解析相对路径（相对于当前工作目录）
+        if (!externalDirectory.isAbsolute()) {
+            externalDirectory = Paths.get("").toAbsolutePath().resolve(externalDirectory).normalize();
+        }
+
+        try {
+            if (!Files.exists(externalDirectory)) {
+                Files.createDirectories(externalDirectory);
+                log.info("[SKILL-LOADER] Created external directory: {}", externalDirectory);
+            }
+        } catch (IOException e) {
+            log.error("[SKILL-LOADER] Failed to create external dir: {}", externalDirectory, e);
+            return;
+        }
+
+        // 自动初始化：外部目录为空时，从 classpath 复制内置 Skill
+        if (properties.isAutoInit() && isDirectoryEmpty(externalDirectory)) {
+            seedFromClasspath(externalDirectory);
+        }
+    }
+
+    /**
+     * 从 classpath 复制内置 Skill 文件到目标目录。
+     */
+    private void seedFromClasspath(Path targetDir) {
+        String builtinPattern = "classpath:skills/**/*.md";
+        try {
+            Resource[] resources =
+                    ResourcePatternUtils.getResourcePatternResolver(resourceLoader)
+                            .getResources(builtinPattern);
+            if (resources.length == 0) {
+                log.debug("[SKILL-LOADER] No builtin skills found on classpath for seeding");
+                return;
+            }
+
+            for (Resource resource : resources) {
+                if (!resource.exists()) continue;
+                String filename = resource.getFilename();
+                if (filename == null) continue;
+
+                Path targetFile = targetDir.resolve(filename);
+                try (InputStream in = resource.getInputStream()) {
+                    Files.copy(in, targetFile, StandardCopyOption.REPLACE_EXISTING);
+                    log.debug("[SKILL-LOADER] Seeded builtin skill: {}", filename);
+                }
+            }
+
+            log.info("[SKILL-LOADER] Auto-initialized {} builtin skills to external dir: {}",
+                    resources.length, targetDir);
+        } catch (IOException e) {
+            log.warn("[SKILL-LOADER] Failed to seed builtin skills: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * 加载 classpath 内置 Skill 作为兜底：仅注册外部目录不存在的同名 Skill。
+     */
+    private void loadBuiltinFallback() {
+        Map<String, ParsedSkill> existing = getExistingSkillMap();
+
+        String builtinPattern = "classpath:skills/**/*.md";
+        try {
+            Resource[] resources =
+                    ResourcePatternUtils.getResourcePatternResolver(resourceLoader)
+                            .getResources(builtinPattern);
+            for (Resource resource : resources) {
+                try {
+                    if (!resource.exists()) continue;
+                    ParsedSkill skill = parse(resource);
+                    if (!existing.containsKey(skill.getName())) {
+                        registry.register(skill);
+                        log.debug("[SKILL-LOADER] Loaded builtin fallback: {}", skill.getName());
+                    } else {
+                        log.debug("[SKILL-LOADER] Skipped builtin (overridden by external): {}",
+                                skill.getName());
+                    }
+                } catch (Exception e) {
+                    log.error("[SKILL-LOADER] Failed to parse builtin skill: {}",
+                            resource.getDescription(), e);
+                }
+            }
+        } catch (IOException e) {
+            log.debug("[SKILL-LOADER] No builtin skills found at classpath:skills");
+        }
+    }
+
+    private Map<String, ParsedSkill> getExistingSkillMap() {
+        Map<String, ParsedSkill> map = new HashMap<>();
+        for (ParsedSkill skill : registry.getAll()) {
+            map.put(skill.getName(), skill);
+        }
+        return map;
+    }
+
+    private boolean isDirectoryEmpty(Path dir) {
+        try {
+            if (!Files.isDirectory(dir)) return true;
+            try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir)) {
+                return !stream.iterator().hasNext();
+            }
+        } catch (IOException e) {
+            return true;
+        }
+    }
+
+    // ===== 文件系统加载 =====
+
+    private void loadFromFileSystem(Path dir) {
+        try {
+            if (!Files.isDirectory(dir)) {
+                log.warn("[SKILL-LOADER] Directory not found: {}. Creating...", dir);
+                Files.createDirectories(dir);
+            }
+
+            try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir, "*.md")) {
+                for (Path path : stream) {
+                    try {
+                        ParsedSkill skill = parse(path);
+                        registry.register(skill);
+                        log.debug("[SKILL-LOADER] Loaded skill: {}", skill.getName());
+                    } catch (Exception e) {
+                        log.error("[SKILL-LOADER] Failed to parse: {}", path, e);
+                    }
+                }
+            }
+        } catch (IOException e) {
+            log.error("[SKILL-LOADER] Failed to load skills from: {}", dir, e);
+        }
+    }
+
+    // ===== Classpath 加载 =====
 
     private boolean isClasspathResource(String dir) {
         return dir.startsWith("classpath:");
@@ -136,30 +364,6 @@ public class SkillLoader {
         }
     }
 
-    private void loadFromFileSystem(String dir) {
-        try {
-            watchedDirectory = Paths.get(dir);
-            if (!Files.isDirectory(watchedDirectory)) {
-                log.warn("[SKILL-LOADER] Directory not found: {}. Creating...", dir);
-                Files.createDirectories(watchedDirectory);
-            }
-
-            try (DirectoryStream<Path> stream = Files.newDirectoryStream(watchedDirectory, "*.md")) {
-                for (Path path : stream) {
-                    try {
-                        ParsedSkill skill = parse(path);
-                        registry.register(skill);
-                        log.debug("[SKILL-LOADER] Loaded skill: {}", skill.getName());
-                    } catch (Exception e) {
-                        log.error("[SKILL-LOADER] Failed to parse: {}", path, e);
-                    }
-                }
-            }
-        } catch (IOException e) {
-            log.error("[SKILL-LOADER] Failed to load skills from: {}", dir, e);
-        }
-    }
-
     // ===== 解析逻辑 =====
 
     /**
@@ -174,7 +378,7 @@ public class SkillLoader {
      * 解析 classpath 资源。
      */
     ParsedSkill parse(Resource resource) throws IOException {
-        String raw = new String(resource.getInputStream().readAllBytes());
+        String raw = new String(resource.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         return parseContent(raw, Path.of(resource.getFilename() != null
                 ? resource.getFilename() : "unknown.md"));
     }

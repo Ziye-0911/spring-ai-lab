@@ -13,12 +13,12 @@ import com.liziye.spring.ai.lab.core.observation.*;
 import com.liziye.spring.ai.lab.core.resilience.CircuitBreakerManager;
 import com.liziye.spring.ai.lab.core.resilience.FallbackManager;
 import com.liziye.spring.ai.lab.core.routing.DefaultModelProviderManager;
+import com.liziye.spring.ai.lab.core.controller.SkillManageController;
 import com.liziye.spring.ai.lab.core.skill.InMemorySkillRegistry;
 import com.liziye.spring.ai.lab.core.skill.SemanticSkillRouter;
 import com.liziye.spring.ai.lab.core.skill.SkillLoader;
 import com.liziye.spring.ai.lab.core.skill.SkillRegistry;
 import com.liziye.spring.ai.lab.core.skill.SkillRouter;
-import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -305,7 +305,7 @@ public class LabAutoConfiguration {
      * @param resourceLoader  资源加载器
      * @return {@link SkillLoader} 实例
      */
-    @Bean
+    @Bean(destroyMethod = "shutdown")
     @ConditionalOnMissingBean
     @ConditionalOnProperty(prefix = "spring.ai.lab.skill", name = "enabled",
             havingValue = "true", matchIfMissing = true)
@@ -318,10 +318,18 @@ public class LabAutoConfiguration {
     }
 
     /**
-     * SkillLoader 销毁时停止热加载监听。
+     * 创建 Skill 管理 REST API Controller。
+     *
+     * <p>仅在 Web 环境下且启用管理功能时装配。
      */
-    @PreDestroy
-    public void shutdownSkillLoader() {
-        // SkillLoader 作为 Bean 存在时由容器管理生命周期
+    @Bean
+    @ConditionalOnMissingBean
+    @ConditionalOnClass(name = "org.springframework.web.bind.annotation.RestController")
+    @ConditionalOnProperty(prefix = "spring.ai.lab.skill", name = "enable-management",
+            havingValue = "true")
+    public SkillManageController skillManageController(SkillRegistry skillRegistry,
+                                                       SkillLoader skillLoader) {
+        log.info("SkillManageController activated: REST API enabled at /api/skills/**");
+        return new SkillManageController(skillRegistry, skillLoader);
     }
 }

@@ -205,6 +205,7 @@ public class DashScopeChatModel implements ChatModel {
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
+    @JsonIgnoreProperties(ignoreUnknown = true)
     static class OpenAIMessage {
         private String role;
         private String content;

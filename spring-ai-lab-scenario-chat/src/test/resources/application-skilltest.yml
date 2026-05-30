@@ -1,0 +1,49 @@
+# ================================================================
+# Skill 功能验证配置 — 使用小米 Token-Plan API
+# ================================================================
+
+spring:
+  main:
+    allow-bean-definition-overriding: true
+    lazy-initialization: false
+
+# ========== 小米 API（OpenAI 兼容端点）==========
+spring.ai.dashscope:
+  api-key: ${DASHSCOPE_API_KEY}
+  base-url: https://token-plan-cn.xiaomimimo.com/v1/chat/completions
+  model: mimo-v2-pro
+  max-tokens: 2048
+  temperature: 0.7
+  connect-timeout: 30
+  read-timeout: 120
+
+# ========== Lab 全局配置 ==========
+spring.ai.lab:
+  enabled: true
+  observation:
+    enabled: true
+    token-tracking: true
+    latency-tracking: true
+    metrics-export: false
+  memory:
+    type: in-memory
+    max-history: 20
+    ttl-minutes: 30
+  model:
+    primary-provider: dashscope
+  # ------ Skill 系统 ------
+  skill:
+    enabled: true
+    # 从 chat 模块的 test 运行目录向上找到项目根 skills/
+    directory: ../skills
+    hot-reload: false
+    routing-strategy: semantic
+    similarity-threshold: 0.05
+    max-matched-skills: 3
+
+# ========== 日志 ==========
+logging.level:
+  com.liziye.spring.ai.lab.core.skill: DEBUG
+  com.liziye.spring.ai.lab.core.orchestrator: DEBUG
+  com.liziye.spring.ai.lab.core.llm: INFO
+  root: WARN
