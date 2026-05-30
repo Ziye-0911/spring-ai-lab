@@ -76,6 +76,7 @@ Spring AI (官方)
 - **🔀 多模型路由** — 支持多模型动态切换，按场景/成本/延迟自动选择，支持主备降级
 - **🧠 对话记忆** — 内存/Redis 两种实现，支持 TTL 过期、定时清理、会话列表查询
 - **📄 文档处理** — PDF/Word/Markdown/HTML/TXT 五格式加载，固定大小/段落/语义三种切分策略
+- **🎯 Skill 系统** — 多源加载（classpath 内置 + 外部目录 + REST API 动态注册），热加载、语义路由、文件变更监听，支持生产环境零停机修改 Skill
 - **🛡️ 容错降级** — 重试（指数退避）→ 熔断器（Resilience4j）→ 降级（Fallback Advisor）三级防护
 - **📊 可观测性** — Token 统计、延迟监控、错误率、文档/工具调用指标，Mircometer → Prometheus/Grafana
 - **🔒 安全防护** — 令牌桶限流器，接口级速率限制
@@ -682,6 +683,18 @@ spring:
             permits-per-second: 10
           rag:
             permits-per-second: 5
+
+      # Skill 系统
+      skill:
+        enabled: true
+        directory: skills                       # 内置 Skill classpath 路径（JAR 内兜底）
+        external-dir: ./custom-skills           # 外部可写目录（生产环境核心配置）
+        auto-init: true                         # 首次启动时自动将内置 Skill 复制到外部目录
+        enable-management: false                # 是否启用 REST API 管理端点
+        hot-reload: true                        # 监听外部目录文件变更自动刷新
+        routing-strategy: semantic              # 路由策略：semantic / keyword / llm
+        similarity-threshold: 0.1               # 语义匹配相似度阈值（0-1）
+        max-matched-skills: 3                   # 每次请求最多匹配的 Skill 数
 ```
 
 ### 多环境配置
@@ -790,3 +803,24 @@ Grafana Dashboard JSON 配置文件见 `docs/grafana-dashboard.json`。
 ---
 
 > **Made with ❤️ for the Spring AI community**
+
+---
+
+## 版本更新
+
+### v0.3.0 (2026-05-30)
+
+**Skill 系统增强：多源加载与 REST API 管理**
+
+- 🎯 **多源 Skill 加载**：支持三层优先级加载 —— REST API 动态注册 > 外部文件目录 > classpath 内置，同名 Skill 高优先级覆盖低优先级
+- 📁 **外部目录支持**：新增 `external-dir` 配置，用户只需指定一个可写文件系统目录即可随时新增/修改 Skill 文件，无需重新打包部署
+- 🔄 **自动初始化**：新增 `auto-init` 选项，首次启动时自动将 JAR 内置 Skill 复制到外部目录，适合生产环境首次部署
+- 🌐 **REST API 管理端点**：新增 `SkillManageController`，提供 5 个管理端点（`GET/POST/DELETE /api/skills/**`、`POST /api/skills/reload`），支持运行时 CRUD 管理 Skill
+- 🗂️ **内置 Skill 打包进 JAR**：将内置 Skill `.md` 文件复制到 `spring-ai-lab-core/src/main/resources/skills/`，确保发布到私服后仍可作为兜底来源
+- ⚙️ **新增配置项**：`external-dir`、`auto-init`、`enable-management`（详见配置参考）
+- ✅ **零 lint 错误，全部 42 个单元测试通过**
+
+### v0.2.0
+
+- 初始场景模板：Chat、RAG、Multi-Agent、Code Review、Data Analysis、Customer Service、MCP Server
+- 基础设施：多模型路由、对话记忆、文档处理、容错降级、可观测性、安全限流

@@ -36,6 +36,12 @@ spring.ai.lab:
     enabled: true
     # 从 chat 模块的 test 运行目录向上找到项目根 skills/
     directory: ../skills
+    # 外部 Skill 目录（可选，生产环境使用，测试时不配置）
+    # external-dir: /opt/myapp/skills
+    # 首次启动时自动将 classpath 内置 Skill 复制到 external-dir
+    # auto-init: true
+    # 是否启用 Skill 管理 REST API（测试时不启用）
+    enable-management: false
     hot-reload: false
     routing-strategy: semantic
     similarity-threshold: 0.05

@@ -22,6 +22,27 @@ spring:
       observation:
         token-tracking: true
         latency-tracking: true
+      # ------ Skill 系统配置 ------
+      skill:
+        enabled: true
+        # 内置 Skill classpath 路径（JAR 内兜底）
+        directory: skills
+        # 外部可写 Skill 目录（生产环境核心配置）
+        # 设置为文件系统路径后，可随时新增/修改 Skill 文件，无需重新打包
+        # 同名 Skill 外部目录优先于 classpath 内置
+        external-dir: ./custom-skills
+        # 首次启动时自动将 classpath 内置 Skill 复制到 external-dir
+        auto-init: true
+        # 是否启用 Skill 管理 REST API（需要 spring-boot-starter-web）
+        enable-management: false
+        # 热加载：监听 external-dir 文件变更自动刷新
+        hot-reload: true
+        # 路由策略：semantic / keyword / llm
+        routing-strategy: semantic
+        # 语义匹配相似度阈值（0-1）
+        similarity-threshold: 0.1
+        # 每次请求最多匹配的 Skill 数
+        max-matched-skills: 3
 
 logging:
   level:
