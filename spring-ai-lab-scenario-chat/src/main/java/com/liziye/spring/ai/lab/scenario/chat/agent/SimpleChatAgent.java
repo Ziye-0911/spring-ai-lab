@@ -50,8 +50,13 @@ public class SimpleChatAgent extends BaseOrchestrator<AgentContext> {
 
     @Override
     protected AgentResponse doExecute(ChatClient chatClient, String userInput, AgentContext context) {
-        // 构建系统提示
+        // 构建系统提示：基础提示 + Skill 增强
         String systemPrompt = chatProperties.getSystemPrompt();
+
+        String skillPrompt = getSkillSystemPrompt(context);
+        if (skillPrompt != null && !skillPrompt.isBlank()) {
+            systemPrompt = systemPrompt + "\n\n" + skillPrompt;
+        }
 
         // 构建 ChatClient 调用
         String responseText = chatClient.prompt()

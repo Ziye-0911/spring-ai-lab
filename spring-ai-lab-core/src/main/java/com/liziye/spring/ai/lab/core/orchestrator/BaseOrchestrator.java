@@ -7,16 +7,16 @@ import com.liziye.spring.ai.lab.core.model.Message;
 import com.liziye.spring.ai.lab.core.observation.LatencyMetrics;
 import com.liziye.spring.ai.lab.core.observation.TokenMetrics;
 import com.liziye.spring.ai.lab.core.routing.ModelProviderManager;
+import com.liziye.spring.ai.lab.core.skill.ParsedSkill;
+import com.liziye.spring.ai.lab.core.skill.SkillRegistry;
+import com.liziye.spring.ai.lab.core.skill.SkillRouter;
 import lombok.extern.slf4j.Slf4j;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.api.Advisor;
 import reactor.core.publisher.Flux;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 
 /**
  * 通用编排基类 — 封装所有场景共用的编排逻辑。
@@ -26,7 +26,7 @@ import java.util.Map;
  *   <li>会话记忆管理（加载历史、追加新消息）</li>
  *   <li>Token 统计与延迟监控</li>
  *   <li>日志记录（每次调用的输入/输出/耗时）</li>
- *   <li>模型调用（通过 {@link ModelRouter} 选择模型）</li>
+ *   <li>模型调用（通过 {@link com.liziye.spring.ai.lab.core.routing.ModelRouter} 选择模型）</li>
  *   <li>异常处理与降级</li>
  * </ol>
  *
@@ -54,17 +54,40 @@ public abstract class BaseOrchestrator<T extends AgentContext> implements AgentO
     protected final List<Advisor> advisors;
     protected final TokenMetrics tokenMetrics;
     protected final LatencyMetrics latencyMetrics;
+    protected final SkillRegistry skillRegistry;
+    protected final SkillRouter skillRouter;
 
+    /**
+     * 构造编排器（不含 Skill 支持，向后兼容）。
+     */
     protected BaseOrchestrator(ModelProviderManager modelManager,
                                ConversationMemory memory,
                                List<Advisor> advisors,
                                TokenMetrics tokenMetrics,
                                LatencyMetrics latencyMetrics) {
+        this(modelManager, memory, advisors, tokenMetrics, latencyMetrics, null, null);
+    }
+
+    /**
+     * 构造编排器（含 Skill 支持）。
+     *
+     * @param skillRegistry Skill 注册中心，可为 null
+     * @param skillRouter   Skill 路由器，可为 null
+     */
+    protected BaseOrchestrator(ModelProviderManager modelManager,
+                               ConversationMemory memory,
+                               List<Advisor> advisors,
+                               TokenMetrics tokenMetrics,
+                               LatencyMetrics latencyMetrics,
+                               SkillRegistry skillRegistry,
+                               SkillRouter skillRouter) {
         this.modelManager = modelManager;
         this.memory = memory;
         this.advisors = advisors != null ? advisors : Collections.emptyList();
         this.tokenMetrics = tokenMetrics;
         this.latencyMetrics = latencyMetrics;
+        this.skillRegistry = skillRegistry;
+        this.skillRouter = skillRouter;
     }
 
     @Override
@@ -78,8 +101,8 @@ public abstract class BaseOrchestrator<T extends AgentContext> implements AgentO
             // 2. 获取 ChatClient
             ChatClient chatClient = resolveChatClient(context);
 
-            // 3. 构建带记忆和 Advisor 的 ChatClient
-            ChatClient configuredClient = buildConfiguredClient(chatClient, conversationId);
+            // 3. 构建带记忆、Advisor 和 Skill 上下文的 ChatClient
+            ChatClient configuredClient = buildConfiguredClient(chatClient, conversationId, userInput, context);
 
             // 4. 执行核心逻辑（子类实现）
             AgentResponse response = doExecute(configuredClient, userInput, context);
@@ -181,12 +204,105 @@ public abstract class BaseOrchestrator<T extends AgentContext> implements AgentO
     }
 
     /**
-     * 构建配置了记忆和 Advisor 的 ChatClient。
+     * 构建配置了记忆、Advisor 和 Skill 上下文的 ChatClient。
+     *
+     * <p>当 Skill 系统启用时，根据用户输入自动匹配最合适的 Skill，
+     * 并将其系统提词存入 Context 的 metadata 中（key = "skill_system_prompt"），
+     * 供子类的 {@link #doExecute} 使用。
+     *
+     * @param chatClient     原始 ChatClient
+     * @param conversationId 会话 ID
+     * @param userInput      用户输入
+     * @param context        场景上下文
+     * @return 配置后的 ChatClient
      */
-    protected ChatClient buildConfiguredClient(ChatClient chatClient, String conversationId) {
-        // 获取对话历史，转换为 Advisor 格式
-        // 也可以通过配置 advisor 传入
+    protected ChatClient buildConfiguredClient(ChatClient chatClient, String conversationId,
+                                                String userInput, T context) {
+        // 注入 Skill 上下文
+        applySkillContext(userInput, context);
+
         return chatClient;
+    }
+
+    /**
+     * 构建配置了记忆和 Advisor 的 ChatClient（向后兼容，不含 Skill）。
+     *
+     * @deprecated 请使用 {@link #buildConfiguredClient(ChatClient, String, String, AgentContext)}
+     */
+    @Deprecated
+    protected ChatClient buildConfiguredClient(ChatClient chatClient, String conversationId) {
+        return chatClient;
+    }
+
+    /**
+     * 执行 Skill 匹配并将匹配到的 Skill 系统提词存入上下文。
+     *
+     * <p>子类的 {@link #doExecute} 可通过以下方式获取 Skill 增强后的系统提词：
+     * <pre>{@code
+     * String skillPrompt = getSkillSystemPrompt(context);
+     * if (skillPrompt != null) {
+     *     systemPrompt = systemPrompt + "\n\n" + skillPrompt;
+     * }
+     * }</pre>
+     */
+    protected void applySkillContext(String userInput, T context) {
+        if (skillRegistry == null || skillRouter == null
+                || userInput == null || userInput.isBlank()) {
+            return;
+        }
+
+        try {
+            List<ParsedSkill> matched = skillRouter.match(userInput, skillRegistry.getAll());
+            if (matched.isEmpty()) return;
+
+            String skillPrompt = buildSkillPrompt(matched);
+            context.getMetadata().put("skill_system_prompt", skillPrompt);
+            context.getMetadata().put("matched_skills", matched.stream()
+                    .map(ParsedSkill::getName).toList());
+
+            log.debug("[SKILL] Matched {} skills for conversation: {}",
+                    matched.size(), matched.stream().map(ParsedSkill::getName).toList());
+        } catch (Exception e) {
+            log.warn("[SKILL] Failed to match skills: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * 获取 Skill 增强后的系统提词（供子类在 doExecute 中使用）。
+     *
+     * @param context 场景上下文
+     * @return Skill 系统提词，如果未启用或未匹配到则返回 null
+     */
+    protected String getSkillSystemPrompt(T context) {
+        Object prompt = context.getMetadata().get("skill_system_prompt");
+        return prompt instanceof String ? (String) prompt : null;
+    }
+
+    /**
+     * 将匹配到的 Skill 列表构建为系统提词。
+     */
+    private String buildSkillPrompt(List<ParsedSkill> skills) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("## 当前激活的技能\n\n");
+
+        for (int i = 0; i < skills.size(); i++) {
+            ParsedSkill skill = skills.get(i);
+            sb.append("### 技能").append(i + 1).append("：")
+                    .append(skill.getDisplayName() != null
+                            ? skill.getDisplayName() : skill.getName()).append("\n\n");
+
+            if (skill.getDescription() != null && !skill.getDescription().isBlank()) {
+                sb.append("**描述**：").append(skill.getDescription()).append("\n\n");
+            }
+
+            sb.append("**指令**：\n").append(skill.getBody()).append("\n");
+
+            if (i < skills.size() - 1) {
+                sb.append("\n---\n\n");
+            }
+        }
+
+        return sb.toString();
     }
 
     /**

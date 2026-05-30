@@ -4,6 +4,7 @@ import com.liziye.spring.ai.lab.core.config.DashScopeProperties;
 import com.liziye.spring.ai.lab.core.config.LabProperties;
 import com.liziye.spring.ai.lab.core.config.MemoryProperties;
 import com.liziye.spring.ai.lab.core.config.ModelProviderProperties;
+import com.liziye.spring.ai.lab.core.config.SkillProperties;
 import com.liziye.spring.ai.lab.core.llm.DashScopeChatModel;
 import com.liziye.spring.ai.lab.core.memory.ConversationMemory;
 import com.liziye.spring.ai.lab.core.memory.InMemoryConversationMemory;
@@ -12,6 +13,12 @@ import com.liziye.spring.ai.lab.core.observation.*;
 import com.liziye.spring.ai.lab.core.resilience.CircuitBreakerManager;
 import com.liziye.spring.ai.lab.core.resilience.FallbackManager;
 import com.liziye.spring.ai.lab.core.routing.DefaultModelProviderManager;
+import com.liziye.spring.ai.lab.core.skill.InMemorySkillRegistry;
+import com.liziye.spring.ai.lab.core.skill.SemanticSkillRouter;
+import com.liziye.spring.ai.lab.core.skill.SkillLoader;
+import com.liziye.spring.ai.lab.core.skill.SkillRegistry;
+import com.liziye.spring.ai.lab.core.skill.SkillRouter;
+import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -19,6 +26,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
+import org.springframework.core.io.ResourceLoader;
 
 import io.micrometer.core.instrument.MeterRegistry;
 
@@ -40,7 +48,8 @@ import java.util.concurrent.TimeUnit;
         LabProperties.class,
         MemoryProperties.class,
         ModelProviderProperties.class,
-        DashScopeProperties.class
+        DashScopeProperties.class,
+        SkillProperties.class
 })
 public class LabAutoConfiguration {
 
@@ -253,5 +262,66 @@ public class LabAutoConfiguration {
         return new MicrometerMetricsExporter(
                 tokenMetrics, latencyMetrics, documentMetrics,
                 toolCallMetrics, errorMetrics, meterRegistry);
+    }
+
+    // ===== Skill 系统 =====
+
+    /**
+     * 创建 Skill 注册中心 Bean。
+     *
+     * @return {@link InMemorySkillRegistry} 实例
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    @ConditionalOnProperty(prefix = "spring.ai.lab.skill", name = "enabled",
+            havingValue = "true", matchIfMissing = true)
+    public SkillRegistry skillRegistry() {
+        log.info("SkillRegistry initialized");
+        return new InMemorySkillRegistry();
+    }
+
+    /**
+     * 创建语义 Skill 路由器 Bean。
+     *
+     * @param skillProperties Skill 配置属性
+     * @return {@link SemanticSkillRouter} 实例
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    @ConditionalOnProperty(prefix = "spring.ai.lab.skill", name = "routing-strategy",
+            havingValue = "semantic", matchIfMissing = true)
+    public SkillRouter skillRouter(SkillProperties skillProperties) {
+        log.info("SemanticSkillRouter initialized with threshold={}", skillProperties.getSimilarityThreshold());
+        return new SemanticSkillRouter(skillProperties);
+    }
+
+    /**
+     * 创建 Skill 加载器 Bean。
+     *
+     * <p>在初始化完成后立即扫描 skills 目录，如果启用了热加载则启动文件监听。
+     *
+     * @param skillProperties Skill 配置属性
+     * @param skillRegistry   Skill 注册中心
+     * @param resourceLoader  资源加载器
+     * @return {@link SkillLoader} 实例
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    @ConditionalOnProperty(prefix = "spring.ai.lab.skill", name = "enabled",
+            havingValue = "true", matchIfMissing = true)
+    public SkillLoader skillLoader(SkillProperties skillProperties,
+                                   SkillRegistry skillRegistry,
+                                   ResourceLoader resourceLoader) {
+        SkillLoader loader = new SkillLoader(skillProperties, skillRegistry, resourceLoader);
+        loader.load();
+        return loader;
+    }
+
+    /**
+     * SkillLoader 销毁时停止热加载监听。
+     */
+    @PreDestroy
+    public void shutdownSkillLoader() {
+        // SkillLoader 作为 Bean 存在时由容器管理生命周期
     }
 }
